@@ -137,6 +137,13 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>net.darthcraft</groupId>
+            <artifactId>DarthCraftMod</artifactId>
+            <version>1.8-R0.1-SNAPSHOT</version>
+            <type>jar</type>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit-dep</artifactId>
             <version>4.10</version>
@@ -147,6 +154,7 @@
             <artifactId>MetricsExtension</artifactId>
             <version>0.0.5-SNAPSHOT</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.tomcat</groupId>
             <artifactId>tomcat-jdbc</artifactId>

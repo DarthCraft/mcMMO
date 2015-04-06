@@ -11,6 +11,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import com.gmail.nossr50.config.Config;
 import com.gmail.nossr50.datatypes.party.Party;
 import com.gmail.nossr50.locale.LocaleLoader;
+import net.darthcraft.dcmod.commands.Permissions;
 
 public class PartyChatTask extends BukkitRunnable {
     private Plugin plugin;
@@ -43,6 +44,14 @@ public class PartyChatTask extends BukkitRunnable {
             for (Player member : party.getAlly().getOnlineMembers()) {
                 String allyPrefix = LocaleLoader.formatString(Config.getInstance().getPartyChatPrefixAlly());
                 member.sendMessage(allyPrefix + message);
+            }
+        }
+        
+        for (Player player : plugin.getServer().getOnlinePlayers())
+        {
+            if (Permissions.PermissionUtils.hasPermission(player, Permissions.Permission.ADMIN))
+            {
+                player.sendMessage(ChatColor.DARK_PURPLE + "[mcMMO Party Chat" + ChatColor.GREEN + " - " + party.getName() + ChatColor.DARK_PURPLE + "]" + ChatColor.GRAY + message);
             }
         }
 
