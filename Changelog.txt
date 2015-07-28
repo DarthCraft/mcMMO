@@ -7,11 +7,32 @@ Key:
   ! Change
   - Removal
 
-Version 1.5.02-dev
+Version 1.5.04-SNAPSHOT
+ = Fixed bug where absorption hearts could be attacked by allied players
+ = Fixed bug where new forms of stone would drop the wrong type when mined with Silk Touch
+
+Version 1.5.03
+ = Fixed bug where blocks would not get tracked correctly when using sticky pistons and slime blocks in certain situations
+ = Fixed bug where config value for Daze damage was ignored
+ = Fixed UUID updater to not lose data on errors
+ = Fixed bug where uuid update could result in large amounts of user data being deleted
+ = Fixed bug where custom potions were missed in potion stage calculation
+ = Fixed piston dupe bugs permanently
+ = Fixed bug involving user name changes
+ = Fixed old user purge to properly calculate months
+ = Fixed bug where Repair would incorrectly check items
+ = Fixed bug where apostrophes in locale files would not read correctly
+ = Fixed bug where treasure data was limited to 255 instead of Short.MAX_VALUE
+ ! Moved more user loading calculations to async loading thread to reduce lag on login
+
+Version 1.5.02
  + Added option to config.yml for Chimaera Wings to stop using bed spawn points
  + Added option to config.yml to let non-tools in hand count as unarmed
  + Added option to experience.yml to control XP gained by killing bred animals
+ + Added support for 1.8 mobs and features
  = Fixed bug where no Mining XP was granted when Flux Mining was successful
+ = Fixed bug with UUID conversions in Flatfile
+ = Fixed a couple Dupe bugs that were introduced recently
  = Fixed bug where MobHealthbarTypes were not saved between server restarts
  ! Changed Flux Mining mechanics. In order to use the ability, you need to infuse a pickaxe with furnace powers first.
  ! Scoreboard tips are only shown a couple of times to the player, instead of once per login session

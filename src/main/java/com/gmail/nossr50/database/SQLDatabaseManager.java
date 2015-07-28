@@ -133,22 +133,8 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(statement);
+            tryClose(connection);
             massUpdateLock.unlock();
         }
 
@@ -157,7 +143,7 @@ public final class SQLDatabaseManager implements DatabaseManager {
 
     public void purgeOldUsers() {
         massUpdateLock.lock();
-        mcMMO.p.getLogger().info("Purging inactive users older than " + (PURGE_TIME / 2630000L) + " months...");
+        mcMMO.p.getLogger().info("Purging inactive users older than " + (PURGE_TIME / 2630000000L) + " months...");
 
         Connection connection = null;
         Statement statement = null;
@@ -178,22 +164,8 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(statement);
+            tryClose(connection);
             massUpdateLock.unlock();
         }
 
@@ -223,22 +195,8 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(statement);
+            tryClose(connection);
         }
 
         if (success) {
@@ -261,6 +219,7 @@ public final class SQLDatabaseManager implements DatabaseManager {
             if (id == -1) {
                 id = newUser(connection, profile.getPlayerName(), profile.getUniqueId());
                 if (id == -1) {
+                    mcMMO.p.getLogger().severe("Failed to create new account for " + profile.getPlayerName());
                     return false;
                 }
             }
@@ -269,6 +228,10 @@ public final class SQLDatabaseManager implements DatabaseManager {
             statement.setInt(1, id);
             success &= (statement.executeUpdate() != 0);
             statement.close();
+            if (!success) {
+                mcMMO.p.getLogger().severe("Failed to update last login for " + profile.getPlayerName());
+                return false;
+            }
 
             statement = connection.prepareStatement("UPDATE " + tablePrefix + "skills SET "
                     + " taming = ?, mining = ?, repair = ?, woodcutting = ?"
@@ -291,6 +254,10 @@ public final class SQLDatabaseManager implements DatabaseManager {
             statement.setInt(14, id);
             success &= (statement.executeUpdate() != 0);
             statement.close();
+            if (!success) {
+                mcMMO.p.getLogger().severe("Failed to update skills for " + profile.getPlayerName());
+                return false;
+            }
 
             statement = connection.prepareStatement("UPDATE " + tablePrefix + "experience SET "
                     + " taming = ?, mining = ?, repair = ?, woodcutting = ?"
@@ -313,6 +280,10 @@ public final class SQLDatabaseManager implements DatabaseManager {
             statement.setInt(14, id);
             success &= (statement.executeUpdate() != 0);
             statement.close();
+            if (!success) {
+                mcMMO.p.getLogger().severe("Failed to update experience for " + profile.getPlayerName());
+                return false;
+            }
 
             statement = connection.prepareStatement("UPDATE " + tablePrefix + "cooldowns SET "
                     + "  mining = ?, woodcutting = ?, unarmed = ?"
@@ -329,6 +300,10 @@ public final class SQLDatabaseManager implements DatabaseManager {
             statement.setInt(9, id);
             success = (statement.executeUpdate() != 0);
             statement.close();
+            if (!success) {
+                mcMMO.p.getLogger().severe("Failed to update cooldowns for " + profile.getPlayerName());
+                return false;
+            }
 
             statement = connection.prepareStatement("UPDATE " + tablePrefix + "huds SET mobhealthbar = ?, scoreboardtips = ? WHERE user_id = ?");
             statement.setString(1, profile.getMobHealthbarType() == null ? Config.getInstance().getMobHealthbarDefault().name() : profile.getMobHealthbarType().name());
@@ -336,27 +311,17 @@ public final class SQLDatabaseManager implements DatabaseManager {
             statement.setInt(3, id);
             success = (statement.executeUpdate() != 0);
             statement.close();
+            if (!success) {
+                mcMMO.p.getLogger().severe("Failed to update hud settings for " + profile.getPlayerName());
+                return false;
+            }
         }
         catch (SQLException ex) {
             printErrors(ex);
         }
         finally {
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(statement);
+            tryClose(connection);
         }
 
         return success;
@@ -372,7 +337,7 @@ public final class SQLDatabaseManager implements DatabaseManager {
 
         try {
             connection = getConnection(PoolIdentifier.MISC);
-            statement = connection.prepareStatement("SELECT " + query + ", user, NOW() FROM " + tablePrefix + "users JOIN " + tablePrefix + "skills ON (user_id = id) WHERE " + query + " > 0 ORDER BY " + query + " DESC, user LIMIT ?, ?");
+            statement = connection.prepareStatement("SELECT " + query + ", user, NOW() FROM " + tablePrefix + "users JOIN " + tablePrefix + "skills ON (user_id = id) WHERE " + query + " > 0 AND NOT user = '\\_INVALID\\_OLD\\_USERNAME\\_' ORDER BY " + query + " DESC, user LIMIT ?, ?");
             statement.setInt(1, (pageNumber * statsPerPage) - statsPerPage);
             statement.setInt(2, statsPerPage);
             resultSet = statement.executeQuery();
@@ -391,30 +356,9 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (resultSet != null) {
-                try {
-                    resultSet.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(resultSet);
+            tryClose(statement);
+            tryClose(connection);
         }
 
         return stats;
@@ -506,30 +450,9 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (resultSet != null) {
-                try {
-                    resultSet.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(resultSet);
+            tryClose(statement);
+            tryClose(connection);
         }
 
         return skills;
@@ -546,14 +469,7 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (connection != null) {
-                try {
-                    connection.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(connection);
         }
     }
 
@@ -562,14 +478,23 @@ public final class SQLDatabaseManager implements DatabaseManager {
         PreparedStatement statement = null;
 
         try {
+            statement = connection.prepareStatement(
+                    "UPDATE `" + tablePrefix + "users` "
+                            + "SET user = ? "
+                            + "WHERE user = ?");
+            statement.setString(1, "_INVALID_OLD_USERNAME_");
+            statement.setString(2, playerName);
+            statement.executeUpdate();
+            statement.close();
             statement = connection.prepareStatement("INSERT INTO " + tablePrefix + "users (user, uuid, lastlogin) VALUES (?, ?, UNIX_TIMESTAMP())", Statement.RETURN_GENERATED_KEYS);
             statement.setString(1, playerName);
-            statement.setString(2, uuid.toString());
+            statement.setString(2, uuid != null ? uuid.toString() : null);
             statement.executeUpdate();
 
             resultSet = statement.getGeneratedKeys();
 
             if (!resultSet.next()) {
+                mcMMO.p.getLogger().severe("Unable to create new user account in DB");
                 return -1;
             }
 
@@ -580,22 +505,8 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (resultSet != null) {
-                try {
-                    resultSet.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(resultSet);
+            tryClose(statement);
         }
         return -1;
     }
@@ -642,7 +553,7 @@ public final class SQLDatabaseManager implements DatabaseManager {
                             + "s.taming, s.mining, s.repair, s.woodcutting, s.unarmed, s.herbalism, s.excavation, s.archery, s.swords, s.axes, s.acrobatics, s.fishing, s.alchemy, "
                             + "e.taming, e.mining, e.repair, e.woodcutting, e.unarmed, e.herbalism, e.excavation, e.archery, e.swords, e.axes, e.acrobatics, e.fishing, e.alchemy, "
                             + "c.taming, c.mining, c.repair, c.woodcutting, c.unarmed, c.herbalism, c.excavation, c.archery, c.swords, c.axes, c.acrobatics, c.blast_mining, "
-                            + "h.mobhealthbar, h.scoreboardtips, u.uuid "
+                            + "h.mobhealthbar, h.scoreboardtips, u.uuid, u.user "
                             + "FROM " + tablePrefix + "users u "
                             + "JOIN " + tablePrefix + "skills s ON (u.id = s.user_id) "
                             + "JOIN " + tablePrefix + "experience e ON (u.id = e.user_id) "
@@ -656,10 +567,19 @@ public final class SQLDatabaseManager implements DatabaseManager {
             if (resultSet.next()) {
                 try {
                     PlayerProfile profile = loadFromResult(playerName, resultSet);
+                    String name = resultSet.getString(42); // TODO: Magic Number, make sure it stays updated
                     resultSet.close();
                     statement.close();
 
-                    if (!playerName.isEmpty() && !profile.getPlayerName().isEmpty()) {
+                    if (!playerName.isEmpty() && !playerName.equals(name)) {
+                        statement = connection.prepareStatement(
+                                "UPDATE `" + tablePrefix + "users` "
+                                        + "SET user = ? "
+                                        + "WHERE user = ?");
+                        statement.setString(1, "_INVALID_OLD_USERNAME_");
+                        statement.setString(2, name);
+                        statement.executeUpdate();
+                        statement.close();
                         statement = connection.prepareStatement(
                                 "UPDATE `" + tablePrefix + "users` "
                                         + "SET user = ?, uuid = ? "
@@ -683,30 +603,9 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (resultSet != null) {
-                try {
-                    resultSet.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(resultSet);
+            tryClose(statement);
+            tryClose(connection);
         }
 
         // Problem, nothing was returned
@@ -762,30 +661,9 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(e);
         }
         finally {
-            if (resultSet != null) {
-                try {
-                    resultSet.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(resultSet);
+            tryClose(statement);
+            tryClose(connection);
         }
 
     }
@@ -809,22 +687,8 @@ public final class SQLDatabaseManager implements DatabaseManager {
             return false;
         }
         finally {
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(statement);
+            tryClose(connection);
         }
     }
 
@@ -863,22 +727,8 @@ public final class SQLDatabaseManager implements DatabaseManager {
             return false;
         }
         finally {
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(statement);
+            tryClose(connection);
         }
     }
 
@@ -901,30 +751,9 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(e);
         }
         finally {
-            if (resultSet != null) {
-                try {
-                    resultSet.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(resultSet);
+            tryClose(statement);
+            tryClose(connection);
         }
 
         return users;
@@ -956,7 +785,7 @@ public final class SQLDatabaseManager implements DatabaseManager {
                     + "`uuid` varchar(36) NULL DEFAULT NULL,"
                     + "`lastlogin` int(32) unsigned NOT NULL,"
                     + "PRIMARY KEY (`id`),"
-                    + "UNIQUE KEY `user` (`user`),"
+                    + "INDEX(`user`(20) ASC),"
                     + "UNIQUE KEY `uuid` (`uuid`)) DEFAULT CHARSET=latin1 AUTO_INCREMENT=1;");
                 createStatement.close();
             }
@@ -1066,38 +895,10 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (resultSet != null) {
-                try {
-                    resultSet.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (createStatement != null) {
-                try {
-                    createStatement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(resultSet);
+            tryClose(statement);
+            tryClose(createStatement);
+            tryClose(connection);
         }
 
     }
@@ -1174,6 +975,10 @@ public final class SQLDatabaseManager implements DatabaseManager {
                     checkUpgradeAddScoreboardTips(statement);
                     return;
 
+                case DROP_NAME_UNIQUENESS:
+                    checkNameUniqueness(statement);
+                    return;
+
                 default:
                     break;
 
@@ -1185,14 +990,7 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(statement);
         }
     }
 
@@ -1226,14 +1024,7 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(statement);
         }
     }
 
@@ -1328,6 +1119,27 @@ public final class SQLDatabaseManager implements DatabaseManager {
         return DatabaseType.SQL;
     }
 
+    private void checkNameUniqueness(final Statement statement) throws SQLException {
+        ResultSet resultSet = null;
+        try {
+            resultSet = statement.executeQuery("SHOW INDEXES "
+                    + "FROM `" + tablePrefix + "users` "
+                    + "WHERE Column_name='user' "
+                    + " AND NOT Non_unique");
+            if (!resultSet.next()) {
+                return;
+            }
+            resultSet.close();
+            mcMMO.p.getLogger().info("Updating mcMMO MySQL tables to drop name uniqueness...");
+            statement.execute("ALTER TABLE `" + tablePrefix + "users` " 
+                    + "DROP INDEX `user`,"
+                    + "ADD INDEX `user` (`user`(20) ASC)");
+        } catch (SQLException ex) {
+        } finally {
+            tryClose(resultSet);
+        }
+    }
+
     private void checkUpgradeAddAlchemy(final Statement statement) throws SQLException {
         try {
             statement.executeQuery("SELECT `alchemy` FROM `" + tablePrefix + "skills` LIMIT 1");
@@ -1406,14 +1218,7 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (resultSet != null) {
-                try {
-                    resultSet.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(resultSet);
         }
     }
 
@@ -1443,14 +1248,7 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (resultSet != null) {
-                try {
-                    resultSet.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(resultSet);
         }
 
         new GetUUIDUpdatesRequired().runTaskLaterAsynchronously(mcMMO.p, 100); // wait until after first purge
@@ -1475,27 +1273,9 @@ public final class SQLDatabaseManager implements DatabaseManager {
                 } catch (SQLException ex) {
                     printErrors(ex);
                 } finally {
-                    if (resultSet != null) {
-                        try {
-                            resultSet.close();
-                        } catch (SQLException e) {
-                            // Ignore
-                        }
-                    }
-                    if (statement != null) {
-                        try {
-                            statement.close();
-                        } catch (SQLException e) {
-                            // Ignore
-                        }
-                    }
-                    if (connection != null) {
-                        try {
-                            connection.close();
-                        } catch (SQLException e) {
-                            // Ignore
-                        }
-                    }
+                    tryClose(resultSet);
+                    tryClose(statement);
+                    tryClose(connection);
                 }
 
                 if (!names.isEmpty()) {
@@ -1532,14 +1312,7 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (resultSet != null) {
-                try {
-                    resultSet.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(resultSet);
         }
     }
 
@@ -1568,19 +1341,12 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (resultSet != null) {
-                try {
-                    resultSet.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(resultSet);
         }
     }
 
     private int getUserID(final Connection connection, final String playerName, final UUID uuid) {
-        if (cachedUserIDs.containsKey(uuid)) {
+        if (uuid != null && cachedUserIDs.containsKey(uuid)) {
             return cachedUserIDs.get(uuid);
         }
 
@@ -1596,7 +1362,9 @@ public final class SQLDatabaseManager implements DatabaseManager {
             if (resultSet.next()) {
                 int id = resultSet.getInt("id");
 
-                cachedUserIDs.put(uuid, id);
+                if (uuid != null) {
+                    cachedUserIDs.put(uuid, id);
+                }
 
                 return id;
             }
@@ -1605,25 +1373,22 @@ public final class SQLDatabaseManager implements DatabaseManager {
             printErrors(ex);
         }
         finally {
-            if (resultSet != null) {
-                try {
-                    resultSet.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
-            if (statement != null) {
-                try {
-                    statement.close();
-                }
-                catch (SQLException e) {
-                    // Ignore
-                }
-            }
+            tryClose(resultSet);
+            tryClose(statement);
         }
 
         return -1;
+    }
+    
+    private void tryClose(AutoCloseable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            }
+            catch (Exception e) {
+                // Ignore
+            }
+        }
     }
 
     @Override

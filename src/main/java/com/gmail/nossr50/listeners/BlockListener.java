@@ -64,10 +64,6 @@ public class BlockListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPistonExtend(BlockPistonExtendEvent event) {
-        if (!EventUtils.shouldProcessEvent(event.getBlock(), true)) {
-            return;
-        }
-
         BlockFace direction = event.getDirection();
         Block futureEmptyBlock = event.getBlock().getRelative(direction); // Block that would be air after piston is finished
 
@@ -79,12 +75,14 @@ public class BlockListener implements Listener {
 
         for (Block b : blocks) {
             if (BlockUtils.shouldBeWatched(b.getState()) && mcMMO.getPlaceStore().isTrue(b)) {
-                b.getRelative(direction).setMetadata(mcMMO.blockMetadataKey, mcMMO.metadataValue);
+                Block nextBlock = b.getRelative(direction);
+                mcMMO.getPlaceStore().setTrue(nextBlock);
+                //b.getRelative(direction).setMetadata(mcMMO.blockMetadataKey, mcMMO.metadataValue);
             }
         }
 
         // Needed because blocks sometimes don't move when two pistons push towards each other
-        new PistonTrackerTask(blocks, direction, futureEmptyBlock).runTaskLater(plugin, 2);
+        //new PistonTrackerTask(blocks, direction, futureEmptyBlock).runTaskLater(plugin, 2);
     }
 
     /**
@@ -94,18 +92,36 @@ public class BlockListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPistonRetract(BlockPistonRetractEvent event) {
-        if (!EventUtils.shouldProcessEvent(event.getBlock(), false)) {
+        // event.isSticky() always returns false
+        // if (!event.isSticky()){
+        //     return;
+        // }
+
+        // Sticky piston return PISTON_MOVING_PIECE and normal piston PISTON_BASE
+        if (event.getBlock().getType() != Material.PISTON_MOVING_PIECE) {
             return;
         }
 
-        if (!event.isSticky()) {
+        // Get opposite direction so we get correct block
+        BlockFace direction = event.getDirection().getOppositeFace();
+        Block movedBlock = event.getBlock().getRelative(direction);
+        mcMMO.getPlaceStore().setTrue(movedBlock);
+
+        // If we're pulling a slime block, it might have something attached to it!
+        if (movedBlock.getRelative(direction).getState().getType() == Material.SLIME_BLOCK) {
+            for (Block block : event.getBlocks()) {
+                movedBlock = block.getRelative(direction);
+                mcMMO.getPlaceStore().setTrue(movedBlock);
+//            // Treat the slime blocks as if it is the sticky piston itself, because pulling
+//            // a slime block with a sticky piston is effectively the same as moving a sticky piston.
+               // new StickyPistonTrackerTask(direction, event.getBlock(), block).runTaskLater(plugin, 2);
+            }
+
             return;
         }
-
-        Block movedBlock = event.getRetractLocation().getBlock();
 
         // Needed only because under some circumstances Minecraft doesn't move the block
-        new StickyPistonTrackerTask(event.getDirection(), event.getBlock(), movedBlock).runTaskLater(plugin, 2);
+        //new StickyPistonTrackerTask(direction, event.getBlock(), movedBlock).runTaskLater(plugin, 2);
     }
 
     /**
